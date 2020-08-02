@@ -43,7 +43,7 @@ cat $1-alive.txt|get-title
 #subjack - subzy
 echo -e "${GREEN}[+]Start Subdomain Takeover Scan"
 subjack -w $1-Final-Subs.txt -t 20 -ssl -c /root/go/src/github.com/haccer/subjack/fingerprints.json -v 3 -o subjack.txt
-subzy -targets $1-Final-Subs.txt -hide_fails --verify_ssl -concurrency 20 |sort -u|tee "subzy.txt"
+subzy -targets $1-Final-Subs.txt -hide_fails --verify_ssl -concurrency 20 | sort -u | tee "subzy.txt"
 
 #Aquatone
 echo -e "${GREEN}[+]Aquatone Screenshot"
