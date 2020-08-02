@@ -40,10 +40,12 @@ cat $1-Final-Subs.txt |sort -u |uniq -u|httprobe|tee $1-alive.txt
 echo -e "${GREEN}[+]Start Get-titles"
 cat $1-alive.txt|get-title
 
+#subjack - subzy
 echo -e "${GREEN}[+]Start Subdomain Takeover Scan"
 subjack -w $1-Final-Subs.txt -t 20 -ssl -c /root/go/src/github.com/haccer/subjack/fingerprints.json -v 3 -o subjack.txt
 subzy -targets $1-Final-Subs.txt -hide_fails --verify_ssl -concurrency 20 |sort -u|tee "subzy.txt"
 
+#Aquatone
 echo -e "${GREEN}[+]Aquatone Screenshot"
 cat $1-alive.txt| aquatone -screenshot-timeout 10 -out screenshots/
 
@@ -57,9 +59,11 @@ sleep 3
 
 domain=$1-alive.txt
 
+#Gau
 echo -e "${GREEN}[+]gau Scan Started..."
 cat $domain | gau | sort | uniq >> gau_urls.txt
 
+#waybackurls
 echo -e "${GREEN}[+]waybackurls Scan Started"
 cat $domain | waybackurls | sort | uniq >> archiveurl.txt
 cat gau_urls.txt archiveurl.txt |  sort -u > waybackurls.txt
@@ -68,7 +72,7 @@ rm archiveurl.txt && rm gau_urls.txt
 echo -e "${GREEN}[+]total waybackurls"
 cat waybackurls.txt | wc -l
 
-
+#Gf
 echo  -e "${GREEN}Buscando endpoints vulnerables............................."
 mkdir paramlist
 cat waybackurls.txt | gf redirect > paramlist/redirect.txt 
@@ -86,14 +90,17 @@ echo "Gf patters Completed"
 echo  -e "${GREEN}Buscando Links Rotos"
 cat waybackurls.txt | egrep -iv ".(jpg|gif|css|png|woff|pdf|svg|js)" | burl | grep 200 | egrep -v "404" | tee brokenlink.txt
 
+#Hakrawler
 echo  -e "${GREEN}Buscando JS"
 cat waybackurls.txt | grep -iE "\.js$" | sort | uniq | httpx -silent -0 Js-temp1.txt
 hakrawler -js -url $1-alive.txt -plain -depth 2 -scope strict -insecure > Js-temp2.txt
 cat Js-temp1.txt Js-temp2.txt | sort | uniq >> Js-Files.txt
 
+#Nuclei
 echo  -e "${GREEN}Buscando CVES"
 nuclei -l $1-alive.txt -t /home/crane0s/tools/nuclei-templates/cves/ -o $-CVES-results.txt
 
+#Wafw00f
 echo "${GREEN}Probando wafw00f ver resutados waf.txt"
 wafw00f -i $domain -o waf.txt
 
