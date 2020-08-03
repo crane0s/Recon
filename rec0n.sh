@@ -95,6 +95,7 @@ echo  -e "${GREEN}Buscando JS"
 cat waybackurls.txt | grep -iE "\.js$" | sort | uniq | httpx -silent -o Js-temp1.txt
 hakrawler -js -url $1-alive.txt -plain -depth 2 -scope strict -insecure > Js-temp2.txt
 cat Js-temp1.txt Js-temp2.txt | sort | uniq >> Js-Files.txt
+rm Js-temp1.txt && rm Js-temp2.txt
 
 #Nuclei
 echo  -e "${GREEN}Buscando CVES"
