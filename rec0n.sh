@@ -28,9 +28,15 @@ subfinder -d $1 >> subfinder.txt
 echo -e "${GREEN}[+] Starting amass"
 amass enum -norecursive -noalts -d $1 >> amass.txt
 
+#censys-subdomain-finder
+echo -e "${GREEN}[+] Starting censys-subdomain-finder"
+export CENSYS_API_ID=df6b110e-33b0-4361-adee-d5f2adfff64e
+export CENSYS_API_SECRET=zfFDwzAJBBoG1jQ9aL267WyqJH0yrlsG
+python /home/crane0s/tools/censys-subdomain-finder/censys_subdomain_finder.py $1 -o censys.txt
+
 #Filtering
 echo -e "${GREEN}[+] Starting Filtering"
-cat sublist3r.txt assetfinder.txt amass.txt subfinder.txt| sort -u |uniq -u| grep -v "*" |sort -u|tee $1-Final-Subs.txt
+cat sublist3r.txt assetfinder.txt amass.txt subfinder.txt censys.txt | sort -u |uniq -u| grep -v "*" |sort -u|tee $1-Final-Subs.txt
 
 #Httprobe
 echo -e "${GREEN}[+] Starting Httprobe"
@@ -47,13 +53,13 @@ subzy -targets $1-Final-Subs.txt -hide_fails --verify_ssl -concurrency 20 | sort
 
 #Aquatone
 echo -e "${GREEN}[+]Aquatone Screenshot"
-cat $1-alive.txt| aquatone -screenshot-timeout 10 -out screenshots/
+#cat $1-alive.txt| aquatone -screenshot-timeout 10 -out screenshots/
 
 echo -e "${GREEN}[+] Numbero de Domains: "&cat $1-Final-Subs.txt | wc -l
 echo -e "${GREEN}[+] Numbero de Urls: "&cat $1-alive.txt | wc -l
 
 echo -e "${GREEN}[+] Borrando cache ....... "
-rm sublist3r.txt assetfinder.txt amass.txt subfinder.txt
+rm sublist3r.txt assetfinder.txt amass.txt subfinder.txt censys.txt
 
 sleep 3
 
@@ -66,6 +72,9 @@ cat $domain | gau | sort | uniq >> gau_urls.txt
 #waybackurls
 echo -e "${GREEN}[+]waybackurls Scan Started"
 cat $domain | waybackurls | sort | uniq >> archiveurl.txt
+
+#gospider
+
 cat gau_urls.txt archiveurl.txt |  sort -u > waybackurls.txt
 rm archiveurl.txt && rm gau_urls.txt
 
@@ -85,6 +94,7 @@ cat waybackurls.txt | gf ssti > paramlist/ssti.txt
 cat waybackurls.txt | gf debug_logic > paramlist/debug_logic.txt 
 cat waybackurls.txt | gf interestingsubs > paramlist/interestingsubs.txt
 cat waybackurls.txt | gf img-traversal > paramlist/img-traversal.txt
+cat waybackurls.txt | grep "?" | sort | qsreplace "" | grep "=" >> paramlist/paramlist.txt
 echo "Gf patters Completed"
 
 echo  -e "${GREEN}Buscando Links Rotos"
@@ -92,14 +102,30 @@ cat waybackurls.txt | egrep -iv ".(jpg|gif|css|png|woff|pdf|svg|js)" | burl | gr
 
 #Hakrawler
 echo  -e "${GREEN}Buscando JS"
-cat waybackurls.txt | grep -iE "\.js$" | sort | uniq | httpx -silent -o Js-temp1.txt
+cat waybackurls.txt | grep -iE "\.js$" | sort | uniq | httpx -silent -o  Js-temp1.txt
 hakrawler -js -url $1-alive.txt -plain -depth 2 -scope strict -insecure > Js-temp2.txt
-cat Js-temp1.txt Js-temp2.txt | sort | uniq >> Js-Files.txt
-rm Js-temp1.txt && rm Js-temp2.txt
+cat $1-alive.txt | subjs >> Js-temp3.txt
+cat Js-temp1.txt Js-temp2.txt Js-temp3.txt | sort | uniq >> Js-Files.txt
+rm Js-temp1.txt && rm Js-temp2.txt && rm Js-temp3.txt
+cat $1-alive.txt | while read url;do python3 /home/crane0s/tools/LinkFinder/linkfinder.py -i $url -d -o cli ; done > jsendpoints.txt
+cat Js-Files.txt | while read url;do python3 /home/crane0s/tools/secretfinder/SecretFinder.py -i $url -o cli ; done > jslinksecret.txt
 
 #Nuclei
 echo  -e "${GREEN}Buscando CVES"
 nuclei -l $1-alive.txt -t /home/crane0s/tools/nuclei-templates/cves/ -o $-CVES-results.txt
+echo  -e "${GREEN}Buscando SSFR"
+nuclei -l paramlist/ssrf.txt -t /home/crane0s/tools/nuclei-templates/vulnerabilities/microstrategy-ssrf.yaml -o $-SSRF-results.txt
+echo  -e "${GREEN}Buscando Openredirect"
+nuclei -l paramlist/redirect.txt -t /home/crane0s/tools/nuclei-templates/vulnerabilities/open-redirect.yaml -o $-Openredirect-results.txt
+echo  -e "${GREEN}Buscando RCE rshellshock-user-agent"
+nuclei -l $1-alive.txt -t /home/crane0s/tools/nuclei-templates/vulnerabilities/rce-shellshock-user-agent.yaml -o $-rceshellshock-results.txt
+echo  -e "${GREEN}Buscando x-forwarded-host-injection"
+nuclei -l $1-alive.txt -t /home/crane0s/tools/nuclei-templates/vulnerabilities/x-forwarded-host-injection.yaml -o $-Hostinjection-results.txt
+echo  -e "${GREEN}Buscando crlf-injection"
+nuclei -l $1-alive.txt -t /home/crane0s/tools/nuclei-templates/vulnerabilities/crlf-injection.yaml -o $-crlfinjection-results.txt
+echo  -e "${GREEN}Buscando Xss"
+nuclei -l paramlist/paramlist.txt -t /home/crane0s/tools/nuclei-templates/basic-detections/basic-xss-prober.yaml -o $-XSS-results.txt
+
 
 #Wafw00f
 echo "${GREEN}Probando wafw00f ver resutados waf.txt"
